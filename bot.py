@@ -1,7 +1,9 @@
 import os
 import time
 import logging
+import threading
 import requests
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
@@ -123,12 +125,32 @@ async def solve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+    def log_message(self, *args):
+        pass
+
+
+def run_health_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    logger.info(f"Health server on :{port}")
+    server.serve_forever()
+
+
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(language_choice))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, solve))
+
+    threading.Thread(target=run_health_server, daemon=True).start()
 
     print("🤖 CodeFix Bot is running...")
     app.run_polling()
