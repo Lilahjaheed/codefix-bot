@@ -17,6 +17,9 @@ from telegram.ext import (
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "YOUR_GEMINI_KEY_HERE")
 
+DEV_USERNAME = "Mathsadiq"
+DEV_URL = "https://t.me/Mathsadiq"
+
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/"
     "models/gemini-flash-lite-latest:generateContent"
@@ -72,7 +75,8 @@ def main_menu_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🌐 Change Language", callback_data="menu_lang")],
         [InlineKeyboardButton("💡 Example Prompt", callback_data="menu_example")],
-        [InlineKeyboardButton("ℹ️ About", callback_data="menu_about")],
+        [InlineKeyboardButton("ℹ️ About", callback_data="menu_about"),
+         InlineKeyboardButton("👨‍💻 Hire Dev", callback_data="menu_hire")],
         [InlineKeyboardButton("🔄 Reset Session", callback_data="menu_reset")],
     ])
 
@@ -107,7 +111,7 @@ async def send_menu(update_or_query, context: ContextTypes.DEFAULT_TYPE, edit: b
         f"🌍 Current language: *{lang_label}*\n\n"
         "Send me any coding question — a bug, a feature, or \"write me a...\" — "
         "and I'll reply with working code.\n\n"
-        "Use the buttons below to navigate:"
+        f"👨‍💻 Built by [@{DEV_USERNAME}]({DEV_URL})"
     )
 
     keyboard = main_menu_keyboard()
@@ -180,9 +184,30 @@ async def menu_nav(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "1. Pick your language (or use auto-detect)\n"
             "2. Send your code or question\n"
             "3. Get a working answer instantly\n\n"
-            "Built with 💛 by [your name]"
+            f"Built with 💛 by [@{DEV_USERNAME}]({DEV_URL})"
         )
         await query.edit_message_text(text, parse_mode="Markdown", reply_markup=back_to_menu_keyboard())
+
+    elif data == "menu_hire":
+        text = (
+            "👨‍💻 *Need a developer?*\n\n"
+            f"I'm [@{DEV_USERNAME}]({DEV_URL}) — I build:\n\n"
+            "🤖 *Telegram Bots*\n"
+            "AI-powered bots, automation, payment integration\n\n"
+            "🌐 *Web Development*\n"
+            "Landing pages, full-stack apps, 3D scroll sites\n\n"
+            "🎬 *Video Editing*\n"
+            "Promos, edits, motion graphics\n\n"
+            "💬 *Transcription*\n"
+            "Audio/video to text, captions, subtitles\n\n"
+            "— — — — — — — — —\n"
+            "👇 Tap below to message me directly"
+        )
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("💬 Message me on Telegram", url=DEV_URL)],
+            [InlineKeyboardButton("⬅️ Back to Menu", callback_data="menu_home")],
+        ])
+        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=keyboard)
 
     elif data == "menu_reset":
         context.user_data["language"] = "any"
@@ -243,9 +268,14 @@ async def solve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("❓ Another question", callback_data="menu_home"),
-             InlineKeyboardButton("🌍 Change language", callback_data="menu_lang")],
+             InlineKeyboardButton("🌍 Language", callback_data="menu_lang")],
+            [InlineKeyboardButton("👨‍💻 Hire the developer", url=DEV_URL)],
         ])
-        await update.message.reply_text("What's next?", reply_markup=keyboard)
+        await update.message.reply_text(
+            f"🔧 Built by [@{DEV_USERNAME}]({DEV_URL}) · Need a bot or website? Tap below.",
+            parse_mode="Markdown",
+            reply_markup=keyboard,
+        )
 
     except Exception as e:
         logger.error(f"Error: {e}")
