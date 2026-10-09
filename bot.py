@@ -48,7 +48,7 @@ SYSTEM_PROMPTS = {
         "- If the user asks a conceptual question (how to learn, what is, difference between) → "
         "give a clear structured answer. Only include code if it truly helps. Keep it beginner-friendly.\n"
         "- Use Telegram Markdown: *bold* for headers, NOT ### or ##.\n"
-        "- Keep answers concise. No fluff."
+        "- Keep answers SHORT and focused. Max 150 words for explanations. No fluff."
     ),
     "javascript": (
         "You are a JavaScript coding expert.\n\n"
@@ -56,7 +56,7 @@ SYSTEM_PROMPTS = {
         "- If the user asks for code/fix/build → give working code in a ```javascript block, then a short explanation.\n"
         "- If the user asks a conceptual question → give a clear structured answer. Only include code if it truly helps.\n"
         "- Use Telegram Markdown: *bold* for headers, NOT ### or ##.\n"
-        "- Keep answers concise. No fluff."
+        "- Keep answers SHORT and focused. Max 150 words for explanations. No fluff."
     ),
     "java": (
         "You are a Java coding expert.\n\n"
@@ -64,7 +64,7 @@ SYSTEM_PROMPTS = {
         "- If the user asks for code/fix/build → give working code in a ```java block, then a short explanation.\n"
         "- If the user asks a conceptual question → give a clear structured answer. Only include code if it truly helps.\n"
         "- Use Telegram Markdown: *bold* for headers, NOT ### or ##.\n"
-        "- Keep answers concise. No fluff."
+        "- Keep answers SHORT and focused. Max 150 words for explanations. No fluff."
     ),
     "react": (
         "You are a React coding expert.\n\n"
@@ -72,7 +72,7 @@ SYSTEM_PROMPTS = {
         "- If the user asks for code/fix/build → give working code in a ```jsx block, then a short explanation.\n"
         "- If the user asks a conceptual question → give a clear structured answer. Only include code if it truly helps.\n"
         "- Use Telegram Markdown: *bold* for headers, NOT ### or ##.\n"
-        "- Keep answers concise. No fluff."
+        "- Keep answers SHORT and focused. Max 150 words for explanations. No fluff."
     ),
     "htmlcss": (
         "You are an HTML/CSS expert.\n\n"
@@ -80,7 +80,7 @@ SYSTEM_PROMPTS = {
         "- If the user asks for code/fix/build → give working code in a ```html block, then a short explanation.\n"
         "- If the user asks a conceptual question → give a clear structured answer. Only include code if it truly helps.\n"
         "- Use Telegram Markdown: *bold* for headers, NOT ### or ##.\n"
-        "- Keep answers concise. No fluff."
+        "- Keep answers SHORT and focused. Max 150 words for explanations. No fluff."
     ),
     "cpp": (
         "You are a C++ coding expert.\n\n"
@@ -88,7 +88,7 @@ SYSTEM_PROMPTS = {
         "- If the user asks for code/fix/build → give working code in a ```cpp block, then a short explanation.\n"
         "- If the user asks a conceptual question → give a clear structured answer. Only include code if it truly helps.\n"
         "- Use Telegram Markdown: *bold* for headers, NOT ### or ##.\n"
-        "- Keep answers concise. No fluff."
+        "- Keep answers SHORT and focused. Max 150 words for explanations. No fluff."
     ),
     "go": (
         "You are a Go coding expert.\n\n"
@@ -96,7 +96,7 @@ SYSTEM_PROMPTS = {
         "- If the user asks for code/fix/build → give working code in a ```go block, then a short explanation.\n"
         "- If the user asks a conceptual question → give a clear structured answer. Only include code if it truly helps.\n"
         "- Use Telegram Markdown: *bold* for headers, NOT ### or ##.\n"
-        "- Keep answers concise. No fluff."
+        "- Keep answers SHORT and focused. Max 150 words for explanations. No fluff."
     ),
     "any": (
         "You are a coding assistant.\n\n"
@@ -106,7 +106,7 @@ SYSTEM_PROMPTS = {
         "- If the user asks a conceptual question (how to learn, what is, difference between) → "
         "give a clear structured answer. Only include code if it truly helps. Keep it beginner-friendly.\n"
         "- Use Telegram Markdown: *bold* for headers, NOT ### or ##.\n"
-        "- Keep answers concise. No fluff."
+        "- Keep answers SHORT and focused. Max 150 words for explanations. No fluff."
     ),
 }
 
@@ -118,7 +118,7 @@ def ask_gemini(prompt: str, retries: int = 3) -> str:
                 f"{GEMINI_URL}?key={GEMINI_API_KEY}",
                 json={
                     "contents": [{"parts": [{"text": prompt}]}],
-                    "generationConfig": {"maxOutputTokens": 2048},
+                    "generationConfig": {"maxOutputTokens": 1024},
                 },
                 timeout=(10, 60),
             )
@@ -443,8 +443,8 @@ async def solve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         full_message = "\n\n━━━━━━━━━━━━━━━━━━━━━━\n\n".join(message_parts)
 
-        if len(full_message) > 4000:
-            full_message = full_message[:4000] + "\n\n... (truncated)"
+        if len(full_message) > 3500:
+            full_message = full_message[:3500] + "\n\n... (truncated — ask for more details)"
 
         try:
             await status.edit_text(full_message, parse_mode="Markdown")
