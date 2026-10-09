@@ -19,6 +19,7 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "YOUR_GEMINI_KEY_HERE")
 
 DEV_USERNAME = "Mathsadiq"
 DEV_URL = "https://t.me/Mathsadiq"
+PORTFOLIO_URL = "https://mathsadiq.netlify.app"
 
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/"
@@ -184,7 +185,8 @@ async def menu_nav(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "1. Pick your language (or use auto-detect)\n"
             "2. Send your code or question\n"
             "3. Get a working answer instantly\n\n"
-            f"Built with 💛 by [@{DEV_USERNAME}]({DEV_URL})"
+            f"Built with 💛 by [@{DEV_USERNAME}]({DEV_URL})\n"
+            f"🌐 [Portfolio]({PORTFOLIO_URL})"
         )
         await query.edit_message_text(text, parse_mode="Markdown", reply_markup=back_to_menu_keyboard())
 
@@ -201,13 +203,31 @@ async def menu_nav(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "💬 *Transcription*\n"
             "Audio/video to text, captions, subtitles\n\n"
             "— — — — — — — — —\n"
-            "👇 Tap below to message me directly"
+            "👇 Tap below to contact me"
         )
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("💬 Message me on Telegram", url=DEV_URL)],
+            [InlineKeyboardButton("🌐 View Portfolio", url=PORTFOLIO_URL)],
             [InlineKeyboardButton("⬅️ Back to Menu", callback_data="menu_home")],
         ])
         await query.edit_message_text(text, parse_mode="Markdown", reply_markup=keyboard)
+
+    elif data == "menu_copy":
+        text = (
+            "📋 *How to copy code*\n\n"
+            "*On mobile:*\n"
+            "1. Long-press the code block\n"
+            "2. Tap *Copy*\n\n"
+            "*On desktop:*\n"
+            "1. Select the code with your mouse\n"
+            "2. Ctrl+C (or Cmd+C on Mac)\n\n"
+            "— — — — — — — — —\n"
+            "The code blocks are the sections marked 📦 CODE.\n"
+            "They're in monospace font and easy to spot.\n\n"
+            "💡 *Tip:* Pick a language first using 🌍 Change Language — "
+            "the bot will match the code style to your language."
+        )
+        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=back_to_menu_keyboard())
 
     elif data == "menu_reset":
         context.user_data["language"] = "any"
@@ -236,6 +256,31 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+def format_answer(raw: str) -> str:
+    """Separate code blocks from explanation with clear visual headers."""
+    import re
+
+    parts = re.split(r"(```(?:\w+)?\n.*?```)", raw, flags=re.DOTALL)
+
+    formatted = []
+    for part in parts:
+        if part.startswith("```"):
+            code = part.strip()
+            lang_match = re.match(r"```(\w+)?", code)
+            lang = lang_match.group(1) if lang_match and lang_match.group(1) else ""
+            formatted.append(
+                f"━━━━━━━━━━ 📦 CODE {('· ' + lang.upper()) if lang else ''} ━━━━━━━━━━\n\n"
+                f"{code}\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            )
+        elif part.strip():
+            formatted.append(
+                f"📖 *EXPLANATION*\n\n{part.strip()}"
+            )
+
+    return "\n\n".join(formatted)
+
+
 async def solve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_msg = update.message.text
     lang_key = context.user_data.get("language", "any")
@@ -257,19 +302,22 @@ async def solve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         answer = ask_gemini(prompt)
+        answer = format_answer(answer)
 
         if len(answer) > 4000:
             answer = answer[:4000] + "\n\n... (truncated)"
 
         try:
-            await status.edit_text(answer)
+            await status.edit_text(answer, parse_mode="Markdown")
         except Exception:
             await update.message.reply_text(answer)
 
         keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📋 How to copy", callback_data="menu_copy")],
             [InlineKeyboardButton("❓ Another question", callback_data="menu_home"),
              InlineKeyboardButton("🌍 Language", callback_data="menu_lang")],
-            [InlineKeyboardButton("👨‍💻 Hire the developer", url=DEV_URL)],
+            [InlineKeyboardButton("👨‍💻 Hire the developer", url=DEV_URL),
+             InlineKeyboardButton("🌐 Portfolio", url=PORTFOLIO_URL)],
         ])
         await update.message.reply_text(
             f"🔧 Built by [@{DEV_USERNAME}]({DEV_URL}) · Need a bot or website? Tap below.",
