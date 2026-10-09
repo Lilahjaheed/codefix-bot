@@ -299,32 +299,43 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-def format_answer(raw: str) -> str:
-    """Separate code blocks from explanation. Convert **bold** to Telegram *bold*."""
+def clean_markdown(text: str) -> str:
+    """Convert Markdown variants to Telegram Markdown."""
     import re
 
-    # Convert **bold** (Gemini style) to *bold* (Telegram style)
-    raw = re.sub(r"\*\*(.+?)\*\*", r"*\1*", raw)
+    # Convert ### Header / ## Header / # Header to *bold*
+    text = re.sub(r"^#{1,4}\s*(.+)$", r"*\1*", text, flags=re.MULTILINE)
+
+    # Convert **bold** to *bold*
+    text = re.sub(r"\*\*(.+?)\*\*", r"*\1*", text)
+
+    # Convert ### inline (e.g. ### Explanation) that's mid-line
+    text = re.sub(r"###\s*(.+)", r"*\1*", text)
+
+    return text
+
+
+def split_answer(raw: str) -> tuple[str, str]:
+    """Split Gemini response into (explanation, code) parts."""
+    import re
+
+    raw = clean_markdown(raw)
 
     parts = re.split(r"(```(?:\w+)?\n.*?```)", raw, flags=re.DOTALL)
 
-    formatted = []
+    explanation_parts = []
+    code_parts = []
+
     for part in parts:
         if part.startswith("```"):
-            code = part.strip()
-            lang_match = re.match(r"```(\w+)?", code)
-            lang = lang_match.group(1) if lang_match and lang_match.group(1) else ""
-            formatted.append(
-                f"━━━━━━━━━━ 📦 CODE {('· ' + lang.upper()) if lang else ''} ━━━━━━━━━━\n\n"
-                f"{code}\n\n"
-                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            )
+            code_parts.append(part.strip())
         elif part.strip():
-            formatted.append(
-                f"📖 *EXPLANATION*\n\n{part.strip()}"
-            )
+            explanation_parts.append(part.strip())
 
-    return "\n\n".join(formatted)
+    explanation = "\n\n".join(explanation_parts)
+    code = "\n\n".join(code_parts)
+
+    return explanation, code
 
 
 GREETINGS = {
@@ -417,16 +428,34 @@ async def solve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         answer = ask_gemini(prompt)
-        answer = format_answer(answer)
+        explanation, code = split_answer(answer)
 
-        if len(answer) > 4000:
-            answer = answer[:4000] + "\n\n... (truncated)"
+        # Send explanation first
+        if explanation:
+            if len(explanation) > 3500:
+                explanation = explanation[:3500] + "\n\n..."
+            try:
+                await status.edit_text(explanation, parse_mode="Markdown")
+            except Exception:
+                await update.message.reply_text(explanation, parse_mode="Markdown")
+        else:
+            try:
+                await status.edit_text("✅ Done!")
+            except Exception:
+                pass
 
-        try:
-            await status.edit_text(answer, parse_mode="Markdown")
-        except Exception:
-            await update.message.reply_text(answer)
+        # Send code as separate message with copy-friendly layout
+        if code:
+            if len(code) > 3500:
+                code = code[:3500] + "\n\n# ... truncated"
+            lang_match = re.match(r"```(\w+)?", code)
+            lang_label = (lang_match.group(1).upper() if lang_match and lang_match.group(1) else "CODE")
+            await update.message.reply_text(
+                f"📦 *{lang_label}*\n\n{code}",
+                parse_mode="Markdown",
+            )
 
+        # Action buttons
         if show_ad:
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("❓ Another question", callback_data="menu_home"),
