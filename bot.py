@@ -300,6 +300,11 @@ async def solve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     status = await update.message.reply_text("⏳ Solving...")
 
+    # Track message count — show ad on 1st, 4th, 7th... (every 3rd)
+    count = context.user_data.get("msg_count", 0) + 1
+    context.user_data["msg_count"] = count
+    show_ad = (count == 1) or (count % 3 == 1)
+
     try:
         answer = ask_gemini(prompt)
         answer = format_answer(answer)
@@ -312,18 +317,25 @@ async def solve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             await update.message.reply_text(answer)
 
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📋 How to copy", callback_data="menu_copy")],
-            [InlineKeyboardButton("❓ Another question", callback_data="menu_home"),
-             InlineKeyboardButton("🌍 Language", callback_data="menu_lang")],
-            [InlineKeyboardButton("👨‍💻 Hire the developer", url=DEV_URL),
-             InlineKeyboardButton("🌐 Portfolio", url=PORTFOLIO_URL)],
-        ])
-        await update.message.reply_text(
-            f"🔧 Built by [@{DEV_USERNAME}]({DEV_URL}) · Need a bot or website? Tap below.",
-            parse_mode="Markdown",
-            reply_markup=keyboard,
-        )
+        if show_ad:
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("📋 How to copy", callback_data="menu_copy")],
+                [InlineKeyboardButton("❓ Another question", callback_data="menu_home"),
+                 InlineKeyboardButton("🌍 Language", callback_data="menu_lang")],
+                [InlineKeyboardButton("👨‍💻 Hire the developer", url=DEV_URL),
+                 InlineKeyboardButton("🌐 Portfolio", url=PORTFOLIO_URL)],
+            ])
+            await update.message.reply_text(
+                f"🔧 Built by [@{DEV_USERNAME}]({DEV_URL}) · Need a bot or website? Tap below.",
+                parse_mode="Markdown",
+                reply_markup=keyboard,
+            )
+        else:
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("❓ Another question", callback_data="menu_home"),
+                 InlineKeyboardButton("🌍 Language", callback_data="menu_lang")],
+            ])
+            await update.message.reply_text("What's next?", reply_markup=keyboard)
 
     except Exception as e:
         logger.error(f"Error: {e}")
