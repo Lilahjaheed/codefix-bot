@@ -430,30 +430,26 @@ async def solve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         answer = ask_gemini(prompt)
         explanation, code = split_answer(answer)
 
-        # Send explanation first
-        if explanation:
-            if len(explanation) > 3500:
-                explanation = explanation[:3500] + "\n\n..."
-            try:
-                await status.edit_text(explanation, parse_mode="Markdown")
-            except Exception:
-                await update.message.reply_text(explanation, parse_mode="Markdown")
-        else:
-            try:
-                await status.edit_text("✅ Done!")
-            except Exception:
-                pass
+        # Build single message: code first, explanation below
+        message_parts = []
 
-        # Send code as separate message with copy-friendly layout
         if code:
-            if len(code) > 3500:
-                code = code[:3500] + "\n\n# ... truncated"
             lang_match = re.match(r"```(\w+)?", code)
             lang_label = (lang_match.group(1).upper() if lang_match and lang_match.group(1) else "CODE")
-            await update.message.reply_text(
-                f"📦 *{lang_label}*\n\n{code}",
-                parse_mode="Markdown",
-            )
+            message_parts.append(f"📦 *{lang_label}*\n\n{code}")
+
+        if explanation:
+            message_parts.append(f"📖 *EXPLANATION*\n\n{explanation}")
+
+        full_message = "\n\n━━━━━━━━━━━━━━━━━━━━━━\n\n".join(message_parts)
+
+        if len(full_message) > 4000:
+            full_message = full_message[:4000] + "\n\n... (truncated)"
+
+        try:
+            await status.edit_text(full_message, parse_mode="Markdown")
+        except Exception:
+            await update.message.reply_text(full_message, parse_mode="Markdown")
 
         # Action buttons
         if show_ad:
