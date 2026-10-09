@@ -388,6 +388,76 @@ def detect_greeting(text: str) -> str | None:
     return None
 
 
+NON_CODING_REPLIES = (
+    "❌ I'm sorry, I cannot help with that.\n\n"
+    "I'm a coding assistant — I only answer questions about:\n"
+    "• Programming (Python, JavaScript, Java, C++, Go, React)\n"
+    "• HTML/CSS\n"
+    "• Debugging code\n"
+    "• Learning to code\n\n"
+    "Do you have a coding question or problem to solve?"
+)
+
+NON_CODING_KEYWORDS = [
+    "time", "date", "today", "weather", "temperature",
+    "unlock", "phone", "password", "account", "email", "wifi", "internet",
+    "book", "novel", "read", "write a story", "poem",
+    "door", "open a door", "cook", "recipe", "food", "meal",
+    "music", "song", "movie", "film", "game", "play",
+    "girlfriend", "boyfriend", "love", "relationship", "marry",
+    "money", "rich", "invest", "bitcoin", "crypto", "forex",
+    "football", "soccer", "basketball", "nba", "premier league",
+    "health", "doctor", "medicine", "sick", "exercise", "gym",
+    "school", "homework", "exam", "teacher", "student",
+    "president", "government", "politics", "war", "news",
+    "joke", "funny", "story", "tell me about",
+    "how to sleep", "how to wake", "how to eat", "how to drink",
+    "how to walk", "how to run", "how to talk", "how to speak",
+    "how to make friends", "how to be happy", "how to be rich",
+    "who is", "what is life", "meaning of life", "god", "religion",
+]
+
+NON_CODING_EXACT = {
+    "what time is it", "what's the time", "what is the time",
+    "what date is it", "what's the date", "what is today",
+    "how are you", "who are you", "what is your name",
+}
+
+
+def is_non_coding(text: str) -> bool:
+    t = text.lower().strip()
+
+    if t in NON_CODING_EXACT:
+        return True
+
+    coding_signals = [
+        "code", "coding", "program", "function", "bug", "error",
+        "python", "javascript", "java", "react", "html", "css",
+        "api", "database", "sql", "git", "deploy", "server",
+        "def ", "class ", "import ", "return ", "console.log",
+        "print(", "var ", "let ", "const ", "int ", "void ",
+        "loop", "array", "string", "variable", "algorithm",
+        "framework", "library", "npm", "pip", "compile",
+        "frontend", "backend", "fullstack", "devops",
+        "write a function", "fix this", "debug", "why does",
+        "how do i code", "how to code", "how to program",
+    ]
+
+    if any(s in t for s in coding_signals):
+        return False
+
+    non_coding_score = sum(1 for kw in NON_CODING_KEYWORDS if kw in t)
+    if non_coding_score >= 2:
+        return True
+
+    question_starters = ("how can i", "how do i", "what is", "who is", "tell me")
+    if any(t.startswith(s) for s in question_starters):
+        if not any(s in t for s in coding_signals):
+            return True
+
+    return False
+
+
 async def solve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_msg = update.message.text
     lang_key = context.user_data.get("language", "any")
@@ -398,6 +468,16 @@ async def solve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = main_menu_keyboard()
         await update.message.reply_text(
             reply, parse_mode="Markdown", reply_markup=keyboard
+        )
+        return
+
+    if is_non_coding(user_msg):
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("💡 Example Prompt", callback_data="menu_example")],
+            [InlineKeyboardButton("⬅️ Back to Menu", callback_data="menu_home")],
+        ])
+        await update.message.reply_text(
+            NON_CODING_REPLIES, reply_markup=keyboard
         )
         return
 
