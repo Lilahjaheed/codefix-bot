@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import logging
 import threading
@@ -281,9 +282,68 @@ def format_answer(raw: str) -> str:
     return "\n\n".join(formatted)
 
 
+GREETINGS = {
+    "hi", "hello", "hey", "yo", "sup", "hola", "salam", "hiya",
+    "good morning", "good afternoon", "good evening", "good night",
+    "how are you", "how are u", "whats up", "what's up", "wassup",
+    "hii", "helloo", "heyy", "hi there", "hey there", "test",
+    "ok", "okay", "cool", "nice", "great", "thanks", "thank you",
+    "bye", "goodbye", "see you", "cya",
+}
+
+GREETING_REPLIES = {
+    "greet": (
+        "👋 Hey! I'm CodeFix Bot.\n\n"
+        "I solve coding problems — just send me your question!\n\n"
+        "Examples:\n"
+        "• Fix this bug: [paste code]\n"
+        "• Write a Python function to sort a list\n"
+        "• How do I center a div in CSS?\n\n"
+        "Pick a language below or just ask anything:"
+    ),
+    "howru": (
+        "😊 I'm doing great, thanks for asking!\n\n"
+        "Ready to help with your code — what do you need?"
+    ),
+    "thanks": (
+        "🙏 You're welcome!\n\n"
+        "Got more code problems? Send them anytime."
+    ),
+    "bye": (
+        "👋 Bye! Come back anytime you need code help.\n\n"
+        "Need a developer? [@Mathsadiq](https://t.me/Mathsadiq) — bots, websites, video editing."
+    ),
+}
+
+
+def detect_greeting(text: str) -> str | None:
+    t = text.lower().strip()
+    if t in ("hi", "hello", "hey", "yo", "sup", "hola", "salam", "hiya",
+             "hii", "helloo", "heyy", "hi there", "hey there", "test",
+             "good morning", "good afternoon", "good evening"):
+        return "greet"
+    if t in ("how are you", "how are u", "whats up", "what's up", "wassup",
+             "how's it going", "how is it going"):
+        return "howru"
+    if t in ("thanks", "thank you", "thx", "ty", "appreciate it"):
+        return "thanks"
+    if t in ("bye", "goodbye", "see you", "cya", "good night"):
+        return "bye"
+    return None
+
+
 async def solve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_msg = update.message.text
     lang_key = context.user_data.get("language", "any")
+
+    greeting_type = detect_greeting(user_msg)
+    if greeting_type:
+        reply = GREETING_REPLIES[greeting_type]
+        keyboard = main_menu_keyboard()
+        await update.message.reply_text(
+            reply, parse_mode="Markdown", reply_markup=keyboard
+        )
+        return
 
     if lang_key == "any":
         prompt = (
