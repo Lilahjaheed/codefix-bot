@@ -168,7 +168,7 @@ async def send_menu(update_or_query, context: ContextTypes.DEFAULT_TYPE, edit: b
     lang_label = LANGUAGES.get(lang_key, "🤖 Auto-detect")
 
     text = (
-        "🤖 *CodeFix Bot*\n\n"
+        "🤖 *ProCoderBot*\n\n"
         f"🌍 Current language: *{lang_label}*\n\n"
         "Send me any coding question — a bug, a feature, or \"write me a...\" — "
         "and I'll reply with working code.\n\n"
@@ -234,8 +234,8 @@ async def menu_nav(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data == "menu_about":
         text = (
-            "ℹ️ *About CodeFix Bot*\n\n"
-            "I solve coding problems in 7+ languages using Google Gemini AI.\n\n"
+            "ℹ️ *About ProCoderBot*\n\n"
+            "I solve coding problems in 7+ languages.\n\n"
             "*What I can do:*\n"
             "• Fix bugs in your code\n"
             "• Write functions from scratch\n"
@@ -272,23 +272,6 @@ async def menu_nav(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
         await query.edit_message_text(text, parse_mode="Markdown", reply_markup=keyboard)
 
-    elif data == "menu_copy":
-        text = (
-            "📋 *How to copy code*\n\n"
-            "*On mobile:*\n"
-            "1. Long-press the code block\n"
-            "2. Tap *Copy*\n\n"
-            "*On desktop:*\n"
-            "1. Select the code with your mouse\n"
-            "2. Ctrl+C (or Cmd+C on Mac)\n\n"
-            "— — — — — — — — —\n"
-            "The code blocks are the sections marked 📦 CODE.\n"
-            "They're in monospace font and easy to spot.\n\n"
-            "💡 *Tip:* Pick a language first using 🌍 Change Language — "
-            "the bot will match the code style to your language."
-        )
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=back_to_menu_keyboard())
-
     elif data == "menu_reset":
         context.user_data["language"] = "any"
         context.user_data.pop("history", None)
@@ -317,8 +300,11 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def format_answer(raw: str) -> str:
-    """Separate code blocks from explanation with clear visual headers."""
+    """Separate code blocks from explanation. Convert **bold** to Telegram *bold*."""
     import re
+
+    # Convert **bold** (Gemini style) to *bold* (Telegram style)
+    raw = re.sub(r"\*\*(.+?)\*\*", r"*\1*", raw)
 
     parts = re.split(r"(```(?:\w+)?\n.*?```)", raw, flags=re.DOTALL)
 
@@ -352,7 +338,7 @@ GREETINGS = {
 
 GREETING_REPLIES = {
     "greet": (
-        "👋 Hey! I'm CodeFix Bot.\n\n"
+        "👋 Hey! I'm ProCoderBot.\n\n"
         "I solve coding problems — just send me your question!\n\n"
         "Examples:\n"
         "• Fix this bug: [paste code]\n"
@@ -443,7 +429,6 @@ async def solve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if show_ad:
             keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("📋 How to copy", callback_data="menu_copy")],
                 [InlineKeyboardButton("❓ Another question", callback_data="menu_home"),
                  InlineKeyboardButton("🌍 Language", callback_data="menu_lang")],
                 [InlineKeyboardButton("👨‍💻 Hire the developer", url=DEV_URL),
@@ -506,7 +491,7 @@ def main():
 
     threading.Thread(target=run_health_server, daemon=True).start()
 
-    print("🤖 CodeFix Bot is running...")
+    print("🤖 ProCoderBot is running...")
     app.run_polling()
 
 
