@@ -22,25 +22,16 @@ DEV_USERNAME = "Mathsadiq"
 DEV_URL = "https://t.me/Mathsadiq"
 PORTFOLIO_URL = "https://mathsadiq.netlify.app"
 
-# Security: Owner Telegram user ID (only you can use admin commands)
-OWNER_ID = int(os.environ.get("OWNER_ID", "0"))  # Set this in Render env vars
+# Owner Telegram user ID (only you can use admin commands)
+OWNER_ID = int(os.environ.get("OWNER_ID", "6416848944"))  # Set this in Render env vars
 
-# Security: Rate limiting
-RATE_LIMIT_MESSAGES = 5  # Max messages per window
-RATE_LIMIT_WINDOW = 60   # Seconds
-
-# Security: Blocked users (user_id: reason)
+# Blocked users (user_id: reason)
 blocked_users = {}
 
-# Security: User message timestamps for rate limiting
-user_timestamps = {}
-
-# Security: Stats
+# Stats
 stats = {
     "total_users": set(),
     "total_messages": 0,
-    "blocked_attempts": 0,
-    "rate_limited": 0,
 }
 
 GEMINI_URL = (
@@ -58,26 +49,6 @@ def is_owner(user_id: int) -> bool:
 
 def is_blocked(user_id: int) -> bool:
     return user_id in blocked_users
-
-
-def check_rate_limit(user_id: int) -> bool:
-    """Returns True if user is rate limited."""
-    now = time.time()
-    if user_id not in user_timestamps:
-        user_timestamps[user_id] = []
-
-    # Remove old timestamps outside the window
-    user_timestamps[user_id] = [
-        ts for ts in user_timestamps[user_id]
-        if now - ts < RATE_LIMIT_WINDOW
-    ]
-
-    if len(user_timestamps[user_id]) >= RATE_LIMIT_MESSAGES:
-        stats["rate_limited"] += 1
-        return True
-
-    user_timestamps[user_id].append(now)
-    return False
 
 LANGUAGES = {
     "python": "🐍 Python",
@@ -544,8 +515,6 @@ async def handle_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📊 *Bot Statistics*\n\n"
         f"👥 Total users: {total_users}\n"
         f"💬 Total messages: {stats['total_messages']}\n"
-        f"🚫 Rate limited: {stats['rate_limited']}\n"
-        f"⛔ Blocked attempts: {stats['blocked_attempts']}\n"
         f"🔒 Blocked users: {len(blocked_users)}\n"
         f"⏰ Uptime: Check Render dashboard"
     )
@@ -631,6 +600,29 @@ async def handle_blocked_list(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     await update.message.reply_text(msg, parse_mode="Markdown")
 
+
+def is_non_coding(text: str) -> bool:
+    t = text.lower().strip()
+
+    if t in NON_CODING_EXACT:
+        return True
+
+    coding_signals = [
+        "code", "coding", "program", "function", "bug", "error",
+        "python", "javascript", "java", "react", "html", "css",
+        "api", "database", "sql", "git", "deploy", "server",
+        "def ", "class ", "import ", "return ", "console.log",
+        "print(", "var ", "let ", "const ", "int ", "void ",
+        "loop", "array", "string", "variable", "algorithm",
+        "framework", "library", "npm", "pip", "compile",
+        "frontend", "backend", "fullstack", "devops",
+        "write a function", "fix this", "debug", "why does",
+        "how do i code", "how to code", "how to program",
+    ]
+
+    if any(s in t for s in coding_signals):
+        return False
+
     non_coding_score = sum(1 for kw in NON_CODING_KEYWORDS if kw in t)
     if non_coding_score >= 2:
         return True
@@ -647,18 +639,9 @@ async def solve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     user_msg = update.message.text
 
-    # Security: Check if user is blocked
+    # Check if user is blocked
     if is_blocked(user_id):
-        stats["blocked_attempts"] += 1
         return  # Silent ignore
-
-    # Security: Rate limiting
-    if check_rate_limit(user_id):
-        await update.message.reply_text(
-            "⏳ Slow down! You're sending too many messages. "
-            f"Try again in {RATE_LIMIT_WINDOW} seconds."
-        )
-        return
 
     # Track user
     stats["total_users"].add(user_id)
