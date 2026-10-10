@@ -22,6 +22,27 @@ DEV_USERNAME = "Mathsadiq"
 DEV_URL = "https://t.me/Mathsadiq"
 PORTFOLIO_URL = "https://mathsadiq.netlify.app"
 
+# Security: Owner Telegram user ID (only you can use admin commands)
+OWNER_ID = int(os.environ.get("OWNER_ID", "0"))  # Set this in Render env vars
+
+# Security: Rate limiting
+RATE_LIMIT_MESSAGES = 5  # Max messages per window
+RATE_LIMIT_WINDOW = 60   # Seconds
+
+# Security: Blocked users (user_id: reason)
+blocked_users = {}
+
+# Security: User message timestamps for rate limiting
+user_timestamps = {}
+
+# Security: Stats
+stats = {
+    "total_users": set(),
+    "total_messages": 0,
+    "blocked_attempts": 0,
+    "rate_limited": 0,
+}
+
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/"
     "models/gemini-flash-lite-latest:generateContent"
@@ -29,6 +50,34 @@ GEMINI_URL = (
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def is_owner(user_id: int) -> bool:
+    return user_id == OWNER_ID
+
+
+def is_blocked(user_id: int) -> bool:
+    return user_id in blocked_users
+
+
+def check_rate_limit(user_id: int) -> bool:
+    """Returns True if user is rate limited."""
+    now = time.time()
+    if user_id not in user_timestamps:
+        user_timestamps[user_id] = []
+
+    # Remove old timestamps outside the window
+    user_timestamps[user_id] = [
+        ts for ts in user_timestamps[user_id]
+        if now - ts < RATE_LIMIT_WINDOW
+    ]
+
+    if len(user_timestamps[user_id]) >= RATE_LIMIT_MESSAGES:
+        stats["rate_limited"] += 1
+        return True
+
+    user_timestamps[user_id].append(now)
+    return False
 
 LANGUAGES = {
     "python": "🐍 Python",
@@ -485,9 +534,155 @@ def is_non_coding(text: str) -> bool:
     return False
 
 
+async def handle_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Owner only: Show bot statistics."""
+    if not is_owner(update.message.from_user.id):
+        return
+
+    total_users = len(stats["total_users"])
+    msg = (
+        "📊 *Bot Statistics*\n\n"
+        f"👥 Total users: {total_users}\n"
+        f"💬 Total messages: {stats['total_messages']}\n"
+        f"🚫 Rate limited: {stats['rate_limited']}\n"
+        f"⛔ Blocked attempts: {stats['blocked_attempts']}\n"
+        f"🔒 Blocked users: {len(blocked_users)}\n"
+        f"⏰ Uptime: Check Render dashboard"
+    )
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+
+async def handle_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Owner only: Broadcast message to all users."""
+    if not is_owner(update.message.from_user.id):
+        return
+
+    text = update.message.text.replace("/broadcast ", "", 1)
+    if not text:
+        await update.message.reply_text("Usage: /broadcast Your message here")
+        return
+
+    success = 0
+    failed = 0
+    for user_id in stats["total_users"]:
+        try:
+            await context.bot.send_message(user_id, text)
+            success += 1
+        except Exception:
+            failed += 1
+
+    await update.message.reply_text(
+        f"📢 Broadcast sent!\n✅ Success: {success}\n❌ Failed: {failed}"
+    )
+
+
+async def handle_ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Owner only: Ban a user from using the bot."""
+    if not is_owner(update.message.from_user.id):
+        return
+
+    parts = update.message.text.split()
+    if len(parts) < 2:
+        await update.message.reply_text("Usage: /ban <user_id> [reason]")
+        return
+
+    try:
+        target_id = int(parts[1])
+        reason = " ".join(parts[2:]) if len(parts) > 2 else "No reason"
+        blocked_users[target_id] = reason
+        await update.message.reply_text(f"⛔ User {target_id} banned.\nReason: {reason}")
+    except ValueError:
+        await update.message.reply_text("Invalid user ID. Usage: /ban <user_id> [reason]")
+
+
+async def handle_unban(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Owner only: Unban a user."""
+    if not is_owner(update.message.from_user.id):
+        return
+
+    parts = update.message.text.split()
+    if len(parts) < 2:
+        await update.message.reply_text("Usage: /unban <user_id>")
+        return
+
+    try:
+        target_id = int(parts[1])
+        if target_id in blocked_users:
+            del blocked_users[target_id]
+            await update.message.reply_text(f"✅ User {target_id} unbanned.")
+        else:
+            await update.message.reply_text(f"User {target_id} is not banned.")
+    except ValueError:
+        await update.message.reply_text("Invalid user ID.")
+
+
+async def handle_blocked_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Owner only: List all blocked users."""
+    if not is_owner(update.message.from_user.id):
+        return
+
+    if not blocked_users:
+        await update.message.reply_text("No blocked users.")
+        return
+
+    msg = "🔒 *Blocked Users*\n\n"
+    for uid, reason in blocked_users.items():
+        msg += f"• `{uid}` — {reason}\n"
+
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+    non_coding_score = sum(1 for kw in NON_CODING_KEYWORDS if kw in t)
+    if non_coding_score >= 2:
+        return True
+
+    question_starters = ("how can i", "how do i", "what is", "who is", "tell me")
+    if any(t.startswith(s) for s in question_starters):
+        if not any(s in t for s in coding_signals):
+            return True
+
+    return False
+
+
 async def solve(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
     user_msg = update.message.text
+
+    # Security: Check if user is blocked
+    if is_blocked(user_id):
+        stats["blocked_attempts"] += 1
+        return  # Silent ignore
+
+    # Security: Rate limiting
+    if check_rate_limit(user_id):
+        await update.message.reply_text(
+            "⏳ Slow down! You're sending too many messages. "
+            f"Try again in {RATE_LIMIT_WINDOW} seconds."
+        )
+        return
+
+    # Track user
+    stats["total_users"].add(user_id)
+    stats["total_messages"] += 1
+
     lang_key = context.user_data.get("language", "any")
+
+    # Owner commands
+    if is_owner(user_id):
+        if user_msg.startswith("/stats"):
+            await handle_stats(update, context)
+            return
+        if user_msg.startswith("/broadcast "):
+            await handle_broadcast(update, context)
+            return
+        if user_msg.startswith("/ban "):
+            await handle_ban(update, context)
+            return
+        if user_msg.startswith("/unban "):
+            await handle_unban(update, context)
+            return
+        if user_msg.startswith("/blocked"):
+            await handle_blocked_list(update, context)
+            return
 
     greeting_type = detect_greeting(user_msg)
     if greeting_type:
@@ -602,6 +797,17 @@ async def post_init(app):
         BotCommand("menu", "Open main menu"),
         BotCommand("lang", "Change language"),
     ])
+    if OWNER_ID:
+        await app.bot.set_my_commands([
+            BotCommand("start", "Open main menu"),
+            BotCommand("menu", "Open main menu"),
+            BotCommand("lang", "Change language"),
+            BotCommand("stats", "Show bot statistics (owner)"),
+            BotCommand("broadcast", "Broadcast message (owner)"),
+            BotCommand("ban", "Ban a user (owner)"),
+            BotCommand("unban", "Unban a user (owner)"),
+            BotCommand("blocked", "List blocked users (owner)"),
+        ])
 
 
 class HealthHandler(BaseHTTPRequestHandler):
