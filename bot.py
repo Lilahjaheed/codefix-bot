@@ -775,22 +775,27 @@ async def solve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def post_init(app):
+    from telegram import BotCommandScopeChat
+
+    # Default commands for everyone
     await app.bot.set_my_commands([
         BotCommand("start", "Open main menu"),
         BotCommand("menu", "Open main menu"),
         BotCommand("lang", "Change language"),
     ])
+
+    # Admin commands only visible to owner
     if OWNER_ID:
         await app.bot.set_my_commands([
             BotCommand("start", "Open main menu"),
             BotCommand("menu", "Open main menu"),
             BotCommand("lang", "Change language"),
-            BotCommand("stats", "Show bot statistics (owner)"),
-            BotCommand("broadcast", "Broadcast message (owner)"),
-            BotCommand("ban", "Ban a user (owner)"),
-            BotCommand("unban", "Unban a user (owner)"),
-            BotCommand("blocked", "List blocked users (owner)"),
-        ])
+            BotCommand("stats", "📊 Bot statistics"),
+            BotCommand("broadcast", "📢 Broadcast message"),
+            BotCommand("ban", "⛔ Block a user"),
+            BotCommand("unban", "✅ Unblock a user"),
+            BotCommand("blocked", "🔒 List blocked users"),
+        ], scope=BotCommandScopeChat(chat_id=OWNER_ID))
 
 
 class HealthHandler(BaseHTTPRequestHandler):
