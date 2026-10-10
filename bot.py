@@ -649,24 +649,6 @@ async def solve(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lang_key = context.user_data.get("language", "any")
 
-    # Owner commands
-    if is_owner(user_id):
-        if user_msg.startswith("/stats"):
-            await handle_stats(update, context)
-            return
-        if user_msg.startswith("/broadcast "):
-            await handle_broadcast(update, context)
-            return
-        if user_msg.startswith("/ban "):
-            await handle_ban(update, context)
-            return
-        if user_msg.startswith("/unban "):
-            await handle_unban(update, context)
-            return
-        if user_msg.startswith("/blocked"):
-            await handle_blocked_list(update, context)
-            return
-
     greeting_type = detect_greeting(user_msg)
     if greeting_type:
         reply = GREETING_REPLIES[greeting_type]
@@ -821,6 +803,14 @@ def main():
 
     app.add_handler(CommandHandler(["start", "menu"], start))
     app.add_handler(CommandHandler("lang", menu_nav))
+
+    # Owner admin commands
+    app.add_handler(CommandHandler("stats", handle_stats))
+    app.add_handler(CommandHandler("broadcast", handle_broadcast))
+    app.add_handler(CommandHandler("ban", handle_ban))
+    app.add_handler(CommandHandler("unban", handle_unban))
+    app.add_handler(CommandHandler("blocked", handle_blocked_list))
+
     app.add_handler(CallbackQueryHandler(menu_nav, pattern="^menu_"))
     app.add_handler(CallbackQueryHandler(set_language, pattern="^setlang_"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, solve))
