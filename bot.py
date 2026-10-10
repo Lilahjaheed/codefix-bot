@@ -388,6 +388,33 @@ def detect_greeting(text: str) -> str | None:
     return None
 
 
+IDENTITY_KEYWORDS = [
+    "who created you", "who made you", "who built you", "who developed you",
+    "who is your developer", "who is your creator", "who is your owner",
+    "what created you", "what made you", "what built you",
+    "who are you", "what are you", "what is your name", "your name",
+    "who is mathsadiq", "who is your maker",
+    "where were you deployed", "where are you hosted", "where were you built",
+    "what were you built with", "what were you made with", "what tech stack",
+    "what model are you", "which ai are you", "are you chatgpt", "are you gemini",
+    "are you gpt", "are you an ai", "are you human", "are you a bot",
+]
+
+
+def detect_identity(text: str) -> bool:
+    t = text.lower().strip()
+    return any(kw in t for kw in IDENTITY_KEYWORDS)
+
+
+IDENTITY_REPLY = (
+    "👋 I'm *ProCoderBot*!\n\n"
+    "I was created by [@Mathsadiq](https://t.me/Mathsadiq) — "
+    "a developer who builds Telegram bots, websites, and more.\n\n"
+    "I'm here to help you with coding problems. "
+    "Just send me your question!"
+)
+
+
 NON_CODING_REPLIES = (
     "❌ I'm sorry, I cannot help with that.\n\n"
     "I'm a coding assistant — I only answer questions about:\n"
@@ -468,6 +495,16 @@ async def solve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = main_menu_keyboard()
         await update.message.reply_text(
             reply, parse_mode="Markdown", reply_markup=keyboard
+        )
+        return
+
+    if detect_identity(user_msg):
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("👨‍💻 Hire the developer", url=DEV_URL)],
+            [InlineKeyboardButton("⬅️ Back to Menu", callback_data="menu_home")],
+        ])
+        await update.message.reply_text(
+            IDENTITY_REPLY, parse_mode="Markdown", reply_markup=keyboard
         )
         return
 
